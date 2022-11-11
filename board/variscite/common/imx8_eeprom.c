@@ -211,6 +211,11 @@ void var_eeprom_print_prod_info(struct var_eeprom *ep)
 		printf("\nPart number: VSM-DT8MP-%.*s\n", (int)sizeof(partnum), partnum);
 	else
 		printf("\nPart number: VSM-MX8MP-%.*s\n", (int)sizeof(partnum), partnum);
+#elif CONFIG_TARGET_IMX8MP_VAR_SOM_PILATUS
+	if (of_machine_is_compatible("variscite,imx8mp-var-dart"))
+		printf("\nPart number: VSM-DT8MP-%.*s\n", (int)sizeof(partnum), partnum);
+	else
+		printf("\nPart number: VSM-MX8MP-%.*s\n", (int)sizeof(partnum), partnum);
 #elif CONFIG_TARGET_IMX8QXP_VAR_SOM
 	printf("\nPart number: VSM-MX8X-%.*s\n", (int)sizeof(partnum), partnum);
 #elif CONFIG_TARGET_IMX8QM_VAR_SOM

@@ -1,0 +1,15 @@
+if TARGET_IMX8MP_VAR_SOM_PILATUS
+
+config SYS_BOARD
+	default "imx8mp_var_som_pilatus"
+
+config SYS_VENDOR
+	default "variscite"
+
+config SYS_CONFIG_NAME
+	default "imx8mp_var_som_pilatus"
+
+source "board/freescale/common/Kconfig"
+source "board/variscite/common/Kconfig"
+
+endif
