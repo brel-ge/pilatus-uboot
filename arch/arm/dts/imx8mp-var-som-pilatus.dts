@@ -13,9 +13,6 @@
 		stdout-path = &uart2;
 	};
 
-	aliases {
-		gpio5 = &pca9534;
-	};
 
 	memory@40000000 {
 		device_type = "memory";
@@ -63,47 +60,6 @@
 	scl-gpios = <&gpio5 18 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio5 19 GPIO_ACTIVE_HIGH>;
 	status = "okay";
-
-	/* GPIO expander */
-	pca9534: gpio@20 {
-		status = "okay";
-		compatible = "nxp,pca9534";
-		reg = <0x20>;
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		usb3_sel_hog {
-			gpio-hog;
-			gpio-hog-optional;
-			gpios = <4 0>;
-			output-low;
-			line-name = "usb3_sel";
-		};
-
-		eth1_phy_rst_hog {
-			gpio-hog;
-			gpio-hog-optional;
-			gpios = <5 0>;
-			output-high;
-			line-name = "eth1_phy_rst";
-		};
-
-		eth1_phy_vsel_hog {
-			gpio-hog;
-			gpio-hog-optional;
-			gpios = <6 0>;
-			output-high;
-			line-name = "eth1_phy_vsel";
-		};
-
-		eth1_phy_pwr_hog {
-			gpio-hog;
-			gpio-hog-optional;
-			gpios = <7 0>;
-			output-high;
-			line-name = "eth1_phy_pwr";
-		};
-	};
 
 	ptn5150: ptn5150@3d {
 		compatible = "nxp,ptn5150";
@@ -194,7 +150,6 @@
 	pinctrl-0 = <&pinctrl_fec>;
 	phy-mode = "rgmii";
 	phy-handle = <&ethphy1>;
-	phy-reset-gpios = <&pca9534 5 GPIO_ACTIVE_LOW>;
 	phy-reset-duration = <10>;
 	phy-reset-post-delay = <20>;
 	status = "okay";
