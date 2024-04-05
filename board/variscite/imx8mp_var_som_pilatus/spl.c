@@ -38,6 +38,7 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #define ON_HOLD_GPIO IMX_GPIO_NR(4, 26)
+#define SLEEP_GPIO IMX_GPIO_NR(4, 21)
 
 static struct var_eeprom eeprom = {0};
 
@@ -121,6 +122,8 @@ int power_init_board(void)
 
 	gpio_request(ON_HOLD_GPIO, "on_hold_gpio");
 	gpio_direction_output(ON_HOLD_GPIO, 1);
+	gpio_request(SLEEP_GPIO, "sleep_gpio");
+	gpio_direction_output(SLEEP_GPIO, 1);
 
 	return 0;
 }
