@@ -157,6 +157,9 @@ void board_init_f(ulong dummy)
 
 	arch_cpu_init();
 
+	if (IS_ENABLED(CONFIG_PWM_IMX))
+		enable_pwm_clk(0, 1);
+
 	board_early_init_f();
 
 	timer_init();

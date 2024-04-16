@@ -49,6 +49,10 @@
 #define PHY_ANEG_TIMEOUT		20000
 #endif
 
+#ifdef CONFIG_PWM_IMX
+	#define CONFIG_IMX6_PWM_PER_CLK	66000000
+#endif
+
 #ifdef CONFIG_DISTRO_DEFAULTS
 #define BOOT_TARGET_DEVICES(func) \
        func(USB, usb, 0) \
