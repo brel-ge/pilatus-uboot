@@ -23,6 +23,8 @@
 #include <dwc3-uboot.h>
 #include <power/regulator.h>
 #include <linux/delay.h>
+#include <imx_sip.h>
+#include <linux/arm-smccc.h>
 #include <mmc.h>
 
 #include "../common/extcon-ptn5150.h"
@@ -36,6 +38,9 @@ DECLARE_GLOBAL_DATA_PTR;
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
 #define GPIO_PAD_CTRL	(PAD_CTL_DSE1 | PAD_CTL_PUE | PAD_CTL_PE  | PAD_CTL_HYS)
+
+#define DISPMIX				13
+#define MIPI				15
 
 static iomux_v3_cfg_t const uart_pads_dart[] = {
 	MX8MP_PAD_UART1_RXD__UART1_DCE_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
@@ -321,6 +326,8 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 
 int board_init(void)
 {
+	struct arm_smccc_res res;
+
 	if (CONFIG_IS_ENABLED(EXTCON_PTN5150)) {
 		extcon_ptn5150_setup(&usb_ptn5150);
 	}
@@ -336,6 +343,12 @@ int board_init(void)
 #if defined(CONFIG_USB_DWC3) || defined(CONFIG_USB_XHCI_IMX8M)
 	init_usb_clk();
 #endif
+
+	/* enable the dispmix & mipi phy power domain */
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      DISPMIX, true, 0, 0, 0, 0, &res);
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      MIPI, true, 0, 0, 0, 0, &res);
 
 	return 0;
 }
