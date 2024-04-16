@@ -33,6 +33,12 @@
 
 extern int var_setup_mac(struct var_eeprom *ep);
 
+#ifdef CONFIG_DM_VIDEO
+#include <bmp_logo.h>
+#include <lcd.h>
+#include <splash.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
@@ -327,6 +333,10 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 int board_init(void)
 {
 	struct arm_smccc_res res;
+
+#ifdef CONFIG_DM_VIDEO
+	bmp_display((ulong)bmp_logo_bitmap, BMP_ALIGN_CENTER, BMP_ALIGN_CENTER);
+#endif
 
 	if (CONFIG_IS_ENABLED(EXTCON_PTN5150)) {
 		extcon_ptn5150_setup(&usb_ptn5150);
