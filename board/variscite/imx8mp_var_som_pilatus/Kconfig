@@ -12,4 +12,26 @@ config SYS_CONFIG_NAME
 source "board/freescale/common/Kconfig"
 source "board/variscite/common/Kconfig"
 
+menu "IMX8MP Pilatus specific settings"
+
+config BMP_LOGO_EXT4_EN
+	bool "Enable the loading of boot logo from mmc"
+	depends on DM_VIDEO || LCD
+
+config BMP_LOGO_FILENAME
+	string "BMP filename to load boot logo from mmc"
+	default "bootlogo.bmp"
+	depends on BMP_LOGO_EXT4_EN
+
+config BMP_LOGO_MMC_DEV
+	int "MMC device number  to load boot logo from"
+	default 2
+	depends on BMP_LOGO_EXT4_EN
+
+config BMP_LOGO_MMC_PART
+	int "MMC device partition number  to load boot logo from"
+	default 3
+	depends on BMP_LOGO_EXT4_EN
+endmenu
+
 endif

@@ -26,6 +26,7 @@
 #include <imx_sip.h>
 #include <linux/arm-smccc.h>
 #include <mmc.h>
+#include <fs.h>
 
 #include "../common/extcon-ptn5150.h"
 #include "../common/imx8_eeprom.h"
@@ -47,6 +48,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #define DISPMIX				13
 #define MIPI				15
+
+#define LOADADDR_BMP			0x50000000
 
 static iomux_v3_cfg_t const uart_pads_dart[] = {
 	MX8MP_PAD_UART1_RXD__UART1_DCE_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
@@ -334,9 +337,6 @@ int board_init(void)
 {
 	struct arm_smccc_res res;
 
-#ifdef CONFIG_DM_VIDEO
-	bmp_display((ulong)bmp_logo_bitmap, BMP_ALIGN_CENTER, BMP_ALIGN_CENTER);
-#endif
 
 	if (CONFIG_IS_ENABLED(EXTCON_PTN5150)) {
 		extcon_ptn5150_setup(&usb_ptn5150);
@@ -404,6 +404,36 @@ int board_late_init(void)
 
 	var_setup_mac(ep);
 	var_eeprom_print_prod_info(ep);
+
+#ifdef CONFIG_BMP_LOGO_EXT4_EN
+	struct mmc      *mmc = NULL;
+	int             err = false;
+	loff_t		act_read = 0;
+	char dev_part_str[10];
+
+	/* load bmp from mmc dev */
+	snprintf(dev_part_str, sizeof(dev_part_str), "%d:%d", CONFIG_BMP_LOGO_MMC_DEV,
+		 CONFIG_BMP_LOGO_MMC_PART);
+
+	mmc = find_mmc_device(CONFIG_BMP_LOGO_MMC_DEV);
+	if (!mmc)
+		printf("MMC dev %d not found\n", CONFIG_BMP_LOGO_MMC_DEV);
+
+	err = mmc_init(mmc);
+	if (err)
+		printf("MMC dev %d could not be initialized\n", CONFIG_BMP_LOGO_MMC_DEV);
+
+	/* Load from data partition*/
+	if (fs_set_blk_dev("mmc", dev_part_str, FS_TYPE_ANY))
+		printf("MMC dev %d:%d not found\n", CONFIG_BMP_LOGO_MMC_DEV,
+		       CONFIG_BMP_LOGO_MMC_PART);
+
+	err = fs_read(CONFIG_BMP_LOGO_FILENAME, LOADADDR_BMP, 0, 0, &act_read);
+	if (err)
+		printf("BMP file %s could not be read\n", CONFIG_BMP_LOGO_FILENAME);
+
+	bmp_display(LOADADDR_BMP, 0, 0);
+#endif
 
 	return 0;
 }
