@@ -38,6 +38,7 @@ extern int var_setup_mac(struct var_eeprom *ep);
 #include <bmp_logo.h>
 #include <lcd.h>
 #include <splash.h>
+#include <backlight.h>
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -410,6 +411,7 @@ int board_late_init(void)
 	int             err = false;
 	loff_t		act_read = 0;
 	char dev_part_str[10];
+	struct udevice *backlight;
 
 	/* load bmp from mmc dev */
 	snprintf(dev_part_str, sizeof(dev_part_str), "%d:%d", CONFIG_BMP_LOGO_MMC_DEV,
@@ -434,6 +436,19 @@ int board_late_init(void)
 
 	bmp_display(LOADADDR_BMP, 0, 0);
 #endif
+
+	/* Delay needed to prevent flickering */
+	mdelay(30);
+
+	/* Enable backlight */
+	err = uclass_get_device_by_name(UCLASS_PANEL_BACKLIGHT, "backlight", &backlight);
+	if (err) {
+		printf("backlight device not found in device tree\n");
+	} else {
+		err = backlight_enable(backlight);
+		if (err)
+			printf("backlight could not be enabled\n");
+	}
 
 	return 0;
 }

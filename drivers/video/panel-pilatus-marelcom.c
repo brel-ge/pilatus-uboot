@@ -434,8 +434,6 @@ static int panel_pilatus_enable(struct udevice *dev)
 		return -EIO;
 	}
 
-	backlight_enable(priv->backlight);
-
 	return 0;
 }
 
