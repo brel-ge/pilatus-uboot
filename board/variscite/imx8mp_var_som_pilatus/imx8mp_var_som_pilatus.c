@@ -35,7 +35,9 @@
 extern int var_setup_mac(struct var_eeprom *ep);
 
 #ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO_LOGO
 #include <bmp_logo.h>
+#endif
 #include <lcd.h>
 #include <splash.h>
 #include <backlight.h>
