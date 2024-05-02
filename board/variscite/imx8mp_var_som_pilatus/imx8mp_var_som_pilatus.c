@@ -414,6 +414,8 @@ int board_late_init(void)
 	loff_t		act_read = 0;
 	char dev_part_str[10];
 	struct udevice *backlight;
+	int x = 0;
+	int y = 0;
 
 	/* load bmp from mmc dev */
 	snprintf(dev_part_str, sizeof(dev_part_str), "%d:%d", CONFIG_BMP_LOGO_MMC_DEV,
@@ -436,7 +438,9 @@ int board_late_init(void)
 	if (err)
 		printf("BMP file %s could not be read\n", CONFIG_BMP_LOGO_FILENAME);
 
-	bmp_display(LOADADDR_BMP, 0, 0);
+	splash_get_pos(&x, &y);
+
+	bmp_display(LOADADDR_BMP, x, y);
 #endif
 
 	/* Delay needed to prevent flickering */
