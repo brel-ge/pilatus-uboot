@@ -283,4 +283,5 @@ int set_clk_enet(enum enet_freq type);
 int set_clk_eqos(enum enet_freq type);
 void hab_caam_clock_enable(unsigned char enable);
 void enable_usboh3_clk(unsigned char enable);
+void enable_pwm_clk(u32 index, unsigned char enable);
 u32 get_dsi_phy_ref_clk(void);

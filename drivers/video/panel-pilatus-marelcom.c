@@ -1,0 +1,544 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * MARELCOM MACHT101800128-A2WMC003 pilatus_panel MIPI-DSI driver
+ *
+ * Copyright (C) 2024 bytes at work AG - https://www.bytesatwork.io
+ *
+ * based on raydium-rm67191.c
+ *
+ * Copyright 2019 NXP
+ *
+ */
+
+#include <common.h>
+#include <backlight.h>
+#include <dm.h>
+#include <mipi_dsi.h>
+#include <panel.h>
+#include <asm/gpio.h>
+#include <linux/err.h>
+#include <linux/delay.h>
+
+#define CMD_TABLE_LEN 2
+typedef u8 cmd_set_table[CMD_TABLE_LEN];
+
+/* Panel specific color-format bits */
+#define COL_FMT_16BPP 0x55
+#define COL_FMT_18BPP 0x66
+#define COL_FMT_24BPP 0x77
+
+struct panel_pilatus_priv {
+	struct gpio_desc reset;
+	unsigned int lanes;
+	enum mipi_dsi_pixel_format format;
+	unsigned long mode_flags;
+	struct udevice *backlight;
+};
+
+static int color_format_from_dsi_format(enum mipi_dsi_pixel_format format)
+{
+	switch (format) {
+	case MIPI_DSI_FMT_RGB565:
+		return COL_FMT_16BPP;
+	case MIPI_DSI_FMT_RGB666:
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		return COL_FMT_18BPP;
+	case MIPI_DSI_FMT_RGB888:
+		return COL_FMT_24BPP;
+	default:
+		return COL_FMT_24BPP; /* for backward compatibility */
+	}
+};
+
+static int panel_push_cmd_list(struct mipi_dsi_device *device,
+			       const cmd_set_table *cmd_set,
+			       size_t count)
+{
+	size_t i;
+	const cmd_set_table *cmd;
+	int ret;
+
+	for (i = 0; i < count; i++) {
+		cmd = cmd_set++;
+		ret = mipi_dsi_generic_write(device, cmd, CMD_TABLE_LEN);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+};
+
+static const cmd_set_table init_sequence[] = {
+	{0xE0, 0x00},
+	{0xE1, 0x93},
+	{0xE2, 0x65},
+	{0xE3, 0xF8},
+	{0x80, 0x03},
+	{0xE0, 0x01},
+	{0x00, 0x00},
+	{0x01, 0x3B},
+	{0x0C, 0x74},
+	{0x17, 0x00},
+	{0x18, 0xAF},//VGMP=4.8V
+	{0x19, 0x00},//VGSP=0.3V
+	{0x1A, 0x00},
+	{0x1B, 0xAF},
+	{0x1C, 0x00},
+	{0x35, 0x26},	//ASP=011
+	{0x37, 0x09},	//SS=1,BGR=1
+	{0x38, 0x04},	//JDT=100 column inversion
+	{0x39, 0x00},
+	{0x3A, 0x01},
+	{0x3C, 0x78},
+	{0x3D, 0xFF},
+	{0x3E, 0xFF},
+	{0x3F, 0x7F},
+	{0x40, 0x06},
+	{0x41, 0xA0},
+	{0x42, 0x81},
+	{0x43, 0x14},
+	{0x44, 0x23},
+	{0x45, 0x28},
+	{0x55, 0x02},
+	{0x57, 0x69},
+	{0x59, 0x0A},
+	{0x5A, 0x2A},
+	{0x5B, 0x17},
+	{0x5D, 0x7F},
+	{0x5E, 0x6B},
+	{0x5F, 0x5C},
+	{0x60, 0x4F},
+	{0x61, 0x4D},
+	{0x62, 0x3F},
+	{0x63, 0x42},
+	{0x64, 0x2B},
+	{0x65, 0x44},
+	{0x66, 0x43},
+	{0x67, 0x43},
+	{0x68, 0x63},
+	{0x69, 0x52},
+	{0x6A, 0x5A},
+	{0x6B, 0x4F},
+	{0x6C, 0x4E},
+	{0x6D, 0x20},
+	{0x6E, 0x0F},
+	{0x6F, 0x00},
+	{0x70, 0x7F},
+	{0x71, 0x6B},
+	{0x72, 0x5C},
+	{0x73, 0x4F},
+	{0x74, 0x4D},
+	{0x75, 0x3F},
+	{0x76, 0x42},
+	{0x77, 0x2B},
+	{0x78, 0x44},
+	{0x79, 0x43},
+	{0x7A, 0x43},
+	{0x7B, 0x63},
+	{0x7C, 0x52},
+	{0x7D, 0x5A},
+	{0x7E, 0x4F},
+	{0x7F, 0x4E},
+	{0x80, 0x20},
+	{0x81, 0x0F},
+	{0x82, 0x00},
+	{0xE0, 0x02},
+	{0x00, 0x02},
+	{0x01, 0x02},
+	{0x02, 0x00},
+	{0x03, 0x00},
+	{0x04, 0x1E},
+	{0x05, 0x1E},
+	{0x06, 0x1F},
+	{0x07, 0x1F},
+	{0x08, 0x1F},
+	{0x09, 0x17},
+	{0x0A, 0x17},
+	{0x0B, 0x37},
+	{0x0C, 0x37},
+	{0x0D, 0x47},
+	{0x0E, 0x47},
+	{0x0F, 0x45},
+	{0x10, 0x45},
+	{0x11, 0x4B},
+	{0x12, 0x4B},
+	{0x13, 0x49},
+	{0x14, 0x49},
+	{0x15, 0x1F},
+	{0x16, 0x01},
+	{0x17, 0x01},
+	{0x18, 0x00},
+	{0x19, 0x00},
+	{0x1A, 0x1E},
+	{0x1B, 0x1E},
+	{0x1C, 0x1F},
+	{0x1D, 0x1F},
+	{0x1E, 0x1F},
+	{0x1F, 0x17},
+	{0x20, 0x17},
+	{0x21, 0x37},
+	{0x22, 0x37},
+	{0x23, 0x46},
+	{0x24, 0x46},
+	{0x25, 0x44},
+	{0x26, 0x44},
+	{0x27, 0x4A},
+	{0x28, 0x4A},
+	{0x29, 0x48},
+	{0x2A, 0x48},
+	{0x2B, 0x1F},
+	{0x2C, 0x01},
+	{0x2D, 0x01},
+	{0x2E, 0x00},
+	{0x2F, 0x00},
+	{0x30, 0x1F},
+	{0x31, 0x1F},
+	{0x32, 0x1E},
+	{0x33, 0x1E},
+	{0x34, 0x1F},
+	{0x35, 0x17},
+	{0x36, 0x17},
+	{0x37, 0x37},
+	{0x38, 0x37},
+	{0x39, 0x08},
+	{0x3A, 0x08},
+	{0x3B, 0x0A},
+	{0x3C, 0x0A},
+	{0x3D, 0x04},
+	{0x3E, 0x04},
+	{0x3F, 0x06},
+	{0x40, 0x06},
+	{0x41, 0x1F},
+	{0x42, 0x02},
+	{0x43, 0x02},
+	{0x44, 0x00},
+	{0x45, 0x00},
+	{0x46, 0x1F},
+	{0x47, 0x1F},
+	{0x48, 0x1E},
+	{0x49, 0x1E},
+	{0x4A, 0x1F},
+	{0x4B, 0x17},
+	{0x4C, 0x17},
+	{0x4D, 0x37},
+	{0x4E, 0x37},
+	{0x4F, 0x09},
+	{0x50, 0x09},
+	{0x51, 0x0B},
+	{0x52, 0x0B},
+	{0x53, 0x05},
+	{0x54, 0x05},
+	{0x55, 0x07},
+	{0x56, 0x07},
+	{0x57, 0x1F},
+	{0x58, 0x40},
+	{0x5B, 0x30},
+	{0x5C, 0x16},
+	{0x5D, 0x34},
+	{0x5E, 0x05},
+	{0x5F, 0x02},
+	{0x63, 0x00},
+	{0x64, 0x6A},
+	{0x67, 0x73},
+	{0x68, 0x1D},
+	{0x69, 0x08},
+	{0x6A, 0x6A},
+	{0x6B, 0x08},
+	{0x6C, 0x00},
+	{0x6D, 0x00},
+	{0x6E, 0x00},
+	{0x6F, 0x88},
+	{0x75, 0xFF},
+	{0x77, 0xDD},
+	{0x78, 0x3F},
+	{0x79, 0x15},
+	{0x7A, 0x17},
+	{0x7D, 0x14},
+	{0x7E, 0x82},
+	{0xE0, 0x04},
+	{0x00, 0x0E},
+	{0x02, 0xB3},
+	{0x09, 0x61},
+	{0x0E, 0x48},
+	{0xE0, 0x00},
+	{0xE6, 0x02},
+	{0xE7, 0x0C},
+};
+
+static const cmd_set_table init_sequence1[] = {
+	{0xE0, 0x03},
+	{0x2B, 0x01},
+	{0x2C, 0x00},
+	{0x30, 0x40},
+	{0x31, 0x1F},
+	{0x32, 0xFF},
+	{0x33, 0xF0},
+	{0x34, 0xF1},
+	{0x35, 0xF2},
+	{0x36, 0x10},
+	{0x37, 0xF3},
+	{0x38, 0x21},
+	{0x39, 0x0F},
+	{0x3A, 0xEF},
+	{0x3B, 0xFF},
+	{0x3C, 0xFF},
+	{0x3D, 0xFF},
+	{0x3E, 0xFF},
+	{0x3F, 0xFF},
+	{0x40, 0xFF},
+	{0x41, 0xFF},
+	{0x42, 0x00},
+	{0x43, 0x00},
+	{0x44, 0x00},
+	{0x45, 0x0F},
+	{0x46, 0x00},
+	{0x47, 0x00},
+	{0x48, 0x00},
+	{0x49, 0x1F},
+	{0x4A, 0xFE},
+	{0x4B, 0xDD},
+	{0x4C, 0xFE},
+	{0x4D, 0xED},
+	{0x4E, 0xFD},
+	{0x4F, 0xFF},
+	{0x50, 0xFE},
+	{0x51, 0xFF},
+	{0x52, 0xFF},
+	{0x53, 0x00},
+	{0x54, 0x3D},
+	{0x55, 0x3D},
+	{0x56, 0xDE},
+	{0x57, 0xEF},
+	{0x58, 0xF1},
+	{0x59, 0xF0},
+	{0x5A, 0xFF},
+	{0x5B, 0xFF},
+	{0x5C, 0x00},
+	{0x5D, 0x0F},
+	{0x5E, 0xEF},
+	{0x5F, 0x00},
+	{0x60, 0x01},
+	{0x61, 0x11},
+	{0x62, 0x11},
+	{0x63, 0x22},
+	{0x64, 0x22},
+	{0x65, 0x32},
+	{0x66, 0x44},
+	{0x67, 0x43},
+	{0x68, 0x33},
+	{0x69, 0x33},
+	{0x6A, 0x44},
+	{0x6B, 0x44},
+	{0x6C, 0x44},
+	{0x6D, 0x43},
+	{0x6E, 0x55},
+	{0x6F, 0x43},
+	{0x70, 0x22},
+	{0x71, 0x1F},
+	{0x72, 0xFE},
+	{0x73, 0xFD},
+	{0x74, 0xDD},
+	{0x75, 0xCC},
+	{0x76, 0xCC},
+	{0x77, 0x05},
+	{0xE0, 0x00},
+};
+
+static const cmd_set_table init_sequence2[] = {
+	{0x35, 0x00},
+};
+
+static const struct display_timing default_timing = {
+	.pixelclock.typ		= 71000000,
+	.hactive.typ		= 800,
+	.hfront_porch.typ	= 40,
+	.hback_porch.typ	= 20,
+	.hsync_len.typ		= 20,
+	.vactive.typ		= 1280,
+	.vfront_porch.typ	= 20,
+	.vback_porch.typ	= 20,
+	.vsync_len.typ		= 4,
+	.flags			= DISPLAY_FLAGS_HSYNC_LOW |
+				  DISPLAY_FLAGS_VSYNC_LOW,
+};
+
+static int panel_pilatus_enable(struct udevice *dev)
+{
+	struct panel_pilatus_priv *priv = dev_get_priv(dev);
+	struct mipi_dsi_panel_plat *plat = dev_get_plat(dev);
+	struct mipi_dsi_device *dsi = plat->device;
+	int color_format = color_format_from_dsi_format(priv->format);
+	int ret;
+
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_HSE;
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
+	ret = panel_push_cmd_list(dsi, &init_sequence[0],
+				  sizeof(init_sequence) / CMD_TABLE_LEN);
+	if (ret < 0) {
+		printf("Failed to send init_sequence (%d)\n", ret);
+		return -EIO;
+	}
+
+	/* Software reset */
+	ret = mipi_dsi_dcs_soft_reset(dsi);
+	if (ret < 0) {
+		debug("Failed to do Software Reset (%d)\n", ret);
+		return -EIO;
+	}
+
+	mdelay(17);
+
+	/* Set pixel format */
+	ret = mipi_dsi_dcs_set_pixel_format(dsi, color_format);
+	debug("Interface color format set to 0x%x\n", color_format);
+	if (ret < 0) {
+		debug("Failed to set pixel format (%d)\n", ret);
+		return -EIO;
+	}
+
+	/* Exit sleep mode */
+	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
+	if (ret < 0) {
+		debug("Failed to exit sleep mode (%d)\n", ret);
+		return -EIO;
+	}
+
+	mdelay(120);
+	ret = panel_push_cmd_list(dsi, &init_sequence1[0],
+				  sizeof(init_sequence1) / CMD_TABLE_LEN);
+	if (ret < 0) {
+		printf("Failed to send init_sequence 1 (%d)\n", ret);
+		return -EIO;
+	}
+
+	ret = panel_push_cmd_list(dsi, &init_sequence1[0],
+				  sizeof(init_sequence1) / CMD_TABLE_LEN);
+	if (ret < 0) {
+		printf("Failed to send init_sequence 1 (%d)\n", ret);
+		return -EIO;
+	}
+
+	ret = mipi_dsi_dcs_set_display_on(dsi);
+	if (ret < 0) {
+		debug("Failed to set display ON (%d)\n", ret);
+		return -EIO;
+	}
+
+	mdelay(7);
+
+	ret = panel_push_cmd_list(dsi, &init_sequence2[0],
+				  sizeof(init_sequence2) / CMD_TABLE_LEN);
+	if (ret < 0) {
+		printf("Failed to send init_sequence 1 (%d)\n", ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int pilatus_enable_backlight(struct udevice *dev)
+{
+	struct mipi_dsi_panel_plat *plat = dev_get_plat(dev);
+	struct mipi_dsi_device *device = plat->device;
+	int ret;
+
+	ret = mipi_dsi_attach(device);
+	if (ret < 0)
+		return ret;
+
+	return panel_pilatus_enable(dev);
+}
+
+static int pilatus_get_display_timing(struct udevice *dev,
+				      struct display_timing *timings)
+{
+	struct mipi_dsi_panel_plat *plat = dev_get_plat(dev);
+	struct mipi_dsi_device *device = plat->device;
+	struct panel_pilatus_priv *priv = dev_get_priv(dev);
+
+	memcpy(timings, &default_timing, sizeof(*timings));
+
+	/* fill characteristics of DSI data link */
+	if (device) {
+		device->lanes = priv->lanes;
+		device->format = priv->format;
+		device->mode_flags = priv->mode_flags;
+	}
+
+	return 0;
+}
+
+static int panel_pilatus_probe(struct udevice *dev)
+{
+	struct panel_pilatus_priv *priv = dev_get_priv(dev);
+	int ret;
+	u32 video_mode;
+
+	priv->format = MIPI_DSI_FMT_RGB888;
+	priv->mode_flags = MIPI_DSI_MODE_VIDEO_HSE | MIPI_DSI_MODE_EOT_PACKET;
+
+	ret = dev_read_u32(dev, "video-mode", &video_mode);
+	if (!ret) {
+		switch (video_mode) {
+		case 0:
+			/* burst mode */
+			priv->mode_flags |= MIPI_DSI_MODE_VIDEO_BURST;
+			break;
+		case 1:
+			/* non-burst mode with sync event */
+			break;
+		case 2:
+			/* non-burst mode with sync pulse */
+			priv->mode_flags |= MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+					   MIPI_DSI_MODE_VIDEO;
+			break;
+		default:
+			debug("invalid video mode %d\n", video_mode);
+			break;
+		}
+	}
+
+	ret = dev_read_u32(dev, "dsi-lanes", &priv->lanes);
+	if (ret) {
+		debug("Failed to get dsi-lanes property (%d)\n", ret);
+		return ret;
+	}
+
+	ret = gpio_request_by_name(dev, "reset-gpio", 0, &priv->reset,
+				   GPIOD_IS_OUT);
+	if (ret) {
+		debug("Warning: cannot get reset GPIO\n");
+		if (ret != -ENOENT)
+			return ret;
+	}
+
+	ret = uclass_get_device_by_phandle(UCLASS_PANEL_BACKLIGHT, dev,
+					   "backlight", &priv->backlight);
+	if (ret) {
+		debug("Cannot get backlight: ret=%d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static const struct panel_ops panel_pilatus_ops = {
+	.enable_backlight = pilatus_enable_backlight,
+	.get_display_timing = pilatus_get_display_timing,
+};
+
+static const struct udevice_id panel_pilatus_ids[] = {
+	{ .compatible = "marelcom,pilatus" },
+	{ }
+};
+
+U_BOOT_DRIVER(panel_pilatus) = {
+	.name			  = "panel_pilatus",
+	.id			  = UCLASS_PANEL,
+	.of_match		  = panel_pilatus_ids,
+	.ops			  = &panel_pilatus_ops,
+	.probe			  = panel_pilatus_probe,
+	.plat_auto = sizeof(struct mipi_dsi_panel_plat),
+	.priv_auto = sizeof(struct panel_pilatus_priv),
+};
