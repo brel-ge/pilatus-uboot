@@ -23,7 +23,10 @@
 #include <dwc3-uboot.h>
 #include <power/regulator.h>
 #include <linux/delay.h>
+#include <imx_sip.h>
+#include <linux/arm-smccc.h>
 #include <mmc.h>
+#include <fs.h>
 
 #include "../common/extcon-ptn5150.h"
 #include "../common/imx8_eeprom.h"
@@ -31,11 +34,25 @@
 
 extern int var_setup_mac(struct var_eeprom *ep);
 
+#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO_LOGO
+#include <bmp_logo.h>
+#endif
+#include <lcd.h>
+#include <splash.h>
+#include <backlight.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
 #define GPIO_PAD_CTRL	(PAD_CTL_DSE1 | PAD_CTL_PUE | PAD_CTL_PE  | PAD_CTL_HYS)
+
+#define DISPMIX				13
+#define MIPI				15
+
+#define LOADADDR_BMP			0x50000000
 
 static iomux_v3_cfg_t const uart_pads_dart[] = {
 	MX8MP_PAD_UART1_RXD__UART1_DCE_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
@@ -321,6 +338,9 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 
 int board_init(void)
 {
+	struct arm_smccc_res res;
+
+
 	if (CONFIG_IS_ENABLED(EXTCON_PTN5150)) {
 		extcon_ptn5150_setup(&usb_ptn5150);
 	}
@@ -336,6 +356,12 @@ int board_init(void)
 #if defined(CONFIG_USB_DWC3) || defined(CONFIG_USB_XHCI_IMX8M)
 	init_usb_clk();
 #endif
+
+	/* enable the dispmix & mipi phy power domain */
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      DISPMIX, true, 0, 0, 0, 0, &res);
+	arm_smccc_smc(IMX_SIP_GPC, IMX_SIP_GPC_PM_DOMAIN,
+		      MIPI, true, 0, 0, 0, 0, &res);
 
 	return 0;
 }
@@ -381,6 +407,54 @@ int board_late_init(void)
 
 	var_setup_mac(ep);
 	var_eeprom_print_prod_info(ep);
+
+#ifdef CONFIG_BMP_LOGO_EXT4_EN
+	struct mmc      *mmc = NULL;
+	int             err = false;
+	loff_t		act_read = 0;
+	char dev_part_str[10];
+	struct udevice *backlight;
+	int x = 0;
+	int y = 0;
+
+	/* load bmp from mmc dev */
+	snprintf(dev_part_str, sizeof(dev_part_str), "%d:%d", CONFIG_BMP_LOGO_MMC_DEV,
+		 CONFIG_BMP_LOGO_MMC_PART);
+
+	mmc = find_mmc_device(CONFIG_BMP_LOGO_MMC_DEV);
+	if (!mmc)
+		printf("MMC dev %d not found\n", CONFIG_BMP_LOGO_MMC_DEV);
+
+	err = mmc_init(mmc);
+	if (err)
+		printf("MMC dev %d could not be initialized\n", CONFIG_BMP_LOGO_MMC_DEV);
+
+	/* Load from data partition*/
+	if (fs_set_blk_dev("mmc", dev_part_str, FS_TYPE_ANY))
+		printf("MMC dev %d:%d not found\n", CONFIG_BMP_LOGO_MMC_DEV,
+		       CONFIG_BMP_LOGO_MMC_PART);
+
+	err = fs_read(CONFIG_BMP_LOGO_FILENAME, LOADADDR_BMP, 0, 0, &act_read);
+	if (err)
+		printf("BMP file %s could not be read\n", CONFIG_BMP_LOGO_FILENAME);
+
+	splash_get_pos(&x, &y);
+
+	bmp_display(LOADADDR_BMP, x, y);
+#endif
+
+	/* Delay needed to prevent flickering */
+	mdelay(30);
+
+	/* Enable backlight */
+	err = uclass_get_device_by_name(UCLASS_PANEL_BACKLIGHT, "backlight", &backlight);
+	if (err) {
+		printf("backlight device not found in device tree\n");
+	} else {
+		err = backlight_enable(backlight);
+		if (err)
+			printf("backlight could not be enabled\n");
+	}
 
 	return 0;
 }

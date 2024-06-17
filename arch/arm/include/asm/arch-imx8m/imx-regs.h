@@ -490,6 +490,23 @@ struct src {
 	u32 ddr2_rcr;
 };
 
+#define PWMCR_PRESCALER(x)	((((x) - 1) & 0xFFF) << 4)
+#define PWMCR_DOZEEN		BIT(24)
+#define PWMCR_WAITEN		BIT(23)
+#define PWMCR_DBGEN		BIT(22)
+#define PWMCR_CLKSRC_IPG_HIGH	(2 << 16)
+#define PWMCR_CLKSRC_IPG	BIT(16)
+#define PWMCR_EN		BIT(0)
+
+struct pwm_regs {
+	u32	cr;
+	u32	sr;
+	u32	ir;
+	u32	sar;
+	u32	pr;
+	u32	cnr;
+};
+
 #define WDOG_WDT_MASK	BIT(3)
 #define WDOG_WDZST_MASK	BIT(0)
 struct wdog_regs {
