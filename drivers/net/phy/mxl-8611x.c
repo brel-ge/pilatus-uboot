@@ -31,6 +31,12 @@
 #define MXL8611X_EXT_RGMII_CFG1_TX_1G_DELAY_MASK		GENMASK(3, 0)
 #define MXL8611X_EXT_RGMII_CFG1_TX_10MB_100MB_DELAY_MASK	GENMASK(7, 4)
 
+/* RGMII In-Band Status and MDIO Configuration Register */
+#define MXL8611X_EXT_RGMII_MDIO_CFG				0xA005
+#define MXL8611X_EXT_RGMII_MDIO_CFG_EPA0_MASK			GENMASK(6, 6)
+#define MXL8611X_EXT_RGMII_MDIO_CFG_EBA_MASK			GENMASK(5, 5)
+#define MXL8611X_EXT_RGMII_MDIO_CFG_BA_MASK			GENMASK(4, 0)
+
 /* LED registers and defines */
 #define MXL8611X_LED0_CFG_REG					0xA00C
 #define MXL8611X_LED1_CFG_REG					0xA00D
@@ -244,10 +250,38 @@ static int mxl8611x_rgmii_cfg(struct phy_device *phydev)
 	return 0;
 }
 
+static int mxl8611x_broadcast_cfg(struct phy_device *phydev)
+{
+	int ret;
+	u16 val;
+	ofnode node;
+
+	node = phy_get_ofnode(phydev);
+	if (!ofnode_valid(node)) {
+		printf("%s: Invalid device tree node\n", __func__);
+		return -EINVAL;
+	}
+
+	val = mxl8611x_ext_read(phydev, MXL8611X_EXT_RGMII_MDIO_CFG);
+
+	if (ofnode_read_bool(node, "mxl-8611x,broadcast-enabled"))
+		val |= MXL8611X_EXT_RGMII_MDIO_CFG_EPA0_MASK;
+	else
+		val &= ~MXL8611X_EXT_RGMII_MDIO_CFG_EPA0_MASK;
+
+	ret = mxl8611x_ext_write(phydev, MXL8611X_EXT_RGMII_MDIO_CFG, val);
+	if (ret) {
+		printf("%s: Failed to write to RGMII MDIO CFG register, ret = %d\n",
+		       __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int mxl8611x_config(struct phy_device *phydev)
 {
 	int ret;
-
 	/* Configure rgmii */
 	ret = mxl8611x_rgmii_cfg(phydev);
 
@@ -256,6 +290,12 @@ static int mxl8611x_config(struct phy_device *phydev)
 
 	/* Configure LEDs */
 	ret = mxl8611x_led_cfg(phydev);
+
+	if (ret < 0)
+		return ret;
+
+	/* Configure Broadcast */
+	ret = mxl8611x_broadcast_cfg(phydev);
 
 	if (ret < 0)
 		return ret;
