@@ -15,6 +15,8 @@ Optional properties:
 - mxl-8611x,tx-internal-delay-ps-1g: RGMII TX Clock Delay used only when PHY operates
 	in 1G RGMII mode with internal delay (phy-mode is 'rgmii-id' or
 	'rgmii-txid') in pico-seconds.
+- mxl-8611x,broadcast-enabled: Boolean that controls whether the PHY responds to the
+	MDIO interface's broadcasts access from PHY address 0.
 
 Example:
 
@@ -34,4 +36,5 @@ Example:
 		mxl-8611x,rx-internal-delay-ps = <0>;
 		mxl-8611x,tx-internal-delay-ps-100m = <2250>;
 		mxl-8611x,tx-internal-delay-ps-1g = <150>;
+		mxl-8611x,broadcast-enabled;
 	};
