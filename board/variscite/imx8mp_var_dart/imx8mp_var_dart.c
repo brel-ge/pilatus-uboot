@@ -6,6 +6,7 @@
 
 #include <efi_loader.h>
 #include <errno.h>
+#include <fdtdec.h>
 #include <miiphy.h>
 #include <netdev.h>
 #include <asm/io.h>
@@ -350,6 +351,48 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 	return usb_phy_mode;
 }
 #endif
+#endif
+
+#ifdef CONFIG_OF_BOARD_FIXUP
+int vendor_board_fix_fdt(void *fdt_blob)
+{
+	struct var_eeprom *ep = VAR_EEPROM_DATA;
+	int som_rev = SOMREV_MAJOR(ep->somrev);
+
+	if (!fdt_blob) {
+		printf("ERROR: Device tree blob not found.\n");
+		return -EINVAL;
+	}
+
+	if ((var_detect_board_id() == BOARD_ID_DART) && (som_rev >= 2)) {
+		int node_offset, subnode_offset, ret;
+		const char *node_path = "/soc@0/bus@30000000/gpio@30210000";
+		const char *node_name = "eth0_phy_pwr_hog";
+
+		node_offset = fdt_path_offset(fdt_blob, node_path);
+		if (node_offset < 0) {
+			printf("WARNING: couldn't find %s: %s\n", node_path,
+			       fdt_strerror(node_offset));
+			return -ENOENT;
+		}
+
+		subnode_offset = fdt_subnode_offset(fdt_blob, node_offset, node_name);
+		if (subnode_offset < 0) {
+			printf("WARNING: couldn't find %s node: %s\n",
+			       node_name, fdt_strerror(subnode_offset));
+			return -ENOENT;
+		}
+
+		ret = fdt_del_node(fdt_blob, subnode_offset);
+		if (ret < 0) {
+			printf("WARNING: Couldn't delete subnode %s: %s\n",
+			       node_name, fdt_strerror(ret));
+			return ret;
+		}
+	}
+
+	return 0;
+}
 #endif
 
 int board_init(void)
