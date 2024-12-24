@@ -474,6 +474,34 @@ static void setup_gpmi_nand(void)
 }
 #endif
 
+int board_phy_config(struct phy_device *phydev)
+{
+	/* manually configure PHY as master during master-slave negotiation */
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x9, 0x1c00);
+
+	/* control data pad skew */
+	ksz9031_phy_extended_write(phydev, 0x02,
+			MII_KSZ9031_EXT_RGMII_CTRL_SIG_SKEW,
+			MII_KSZ9031_MOD_DATA_NO_POST_INC, 0x0000);
+	/* rx data pad skew */
+	ksz9031_phy_extended_write(phydev, 0x02,
+			MII_KSZ9031_EXT_RGMII_RX_DATA_SKEW,
+			MII_KSZ9031_MOD_DATA_NO_POST_INC, 0x0000);
+	/* tx data pad skew */
+	ksz9031_phy_extended_write(phydev, 0x02,
+			MII_KSZ9031_EXT_RGMII_TX_DATA_SKEW,
+			MII_KSZ9031_MOD_DATA_NO_POST_INC, 0x0000);
+	/* gtx and rx clock pad skew */
+	ksz9031_phy_extended_write(phydev, 0x02,
+			MII_KSZ9031_EXT_RGMII_CLOCK_SKEW,
+			MII_KSZ9031_MOD_DATA_NO_POST_INC, 0x03FF);
+
+	if (phydev->drv->config)
+		phydev->drv->config(phydev);
+
+	return 0;
+}
+
 #if !defined(CONFIG_SPL_BUILD)
 #if CONFIG_IS_ENABLED(SPLASH_SCREEN)
 #if CONFIG_IS_ENABLED(SPLASH_SOURCE)
