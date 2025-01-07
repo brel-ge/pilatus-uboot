@@ -103,7 +103,13 @@
 	"findfdt=" \
 		"if test $fdt_file = undefined; then " \
 			"if test $board_name = VAR-SOM-MX8M-MINI; then " \
-				"setenv fdt_file imx8mm-var-som-symphony.dtb; " \
+				"if test ${som_rev} -lt 2; then " \
+					"setenv fdt_file imx8mm-var-som-1.x-symphony.dtb; " \
+				"elif test ${som_has_wbe} = 1; then " \
+					"setenv fdt_file imx8mm-var-som-wbe-symphony.dtb; " \
+				"else " \
+					"setenv fdt_file imx8mm-var-som-symphony.dtb; " \
+				"fi; " \
 			"else " \
 				"if test ${som_rev} -lt 2; then " \
 					"setenv fdt_file imx8mm-var-dart-1.x-dt8mcustomboard.dtb; " \
