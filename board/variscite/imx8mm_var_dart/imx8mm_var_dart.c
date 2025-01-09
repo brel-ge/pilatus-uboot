@@ -200,22 +200,20 @@ int board_late_init(void)
 	snprintf(sdram_size_str, SDRAM_SIZE_STR_LEN, "%d", (int)(gd->ram_size / 1024 / 1024));
 	env_set("sdram_size", sdram_size_str);
 
-	if (id == VAR_SOM_MX8M_MINI) {
-		env_set("board_name", "VAR-SOM-MX8M-MINI");
-		env_set("console", "ttymxc3,115200");
-
-		var_carrier_eeprom_read(CARRIER_EEPROM_BUS_SOM, CARRIER_EEPROM_ADDR, &carrier_eeprom);
+	if (id != UNKNOWN_BOARD) {
 		var_carrier_eeprom_get_revision(&carrier_eeprom, carrier_rev, sizeof(carrier_rev));
 		env_set("carrier_rev", carrier_rev);
-	} else if (id == DART_MX8M_MINI) {
-		env_set("board_name", "DART-MX8M-MINI");
-
-		var_carrier_eeprom_read(CARRIER_EEPROM_BUS_DART, CARRIER_EEPROM_ADDR, &carrier_eeprom);
-		var_carrier_eeprom_get_revision(&carrier_eeprom, carrier_rev, sizeof(carrier_rev));
-		env_set("carrier_rev", carrier_rev);
-
 		/* SoM Features ENV */
 		env_set("som_has_wbe", (ep->features & VAR_EEPROM_F_WBE) ? "1" : "0");
+
+		if (id == VAR_SOM_MX8M_MINI) {
+			env_set("board_name", "VAR-SOM-MX8M-MINI");
+			env_set("console", "ttymxc3,115200");
+			var_carrier_eeprom_read(CARRIER_EEPROM_BUS_SOM, CARRIER_EEPROM_ADDR, &carrier_eeprom);
+		} else if (id == DART_MX8M_MINI) {
+			env_set("board_name", "DART-MX8M-MINI");
+			var_carrier_eeprom_read(CARRIER_EEPROM_BUS_DART, CARRIER_EEPROM_ADDR, &carrier_eeprom);
+		}
 	}
 
 #ifdef CONFIG_ENV_IS_IN_MMC
