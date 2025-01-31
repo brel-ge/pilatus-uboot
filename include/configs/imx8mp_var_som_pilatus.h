@@ -25,6 +25,10 @@
 #define PHY_ANEG_TIMEOUT		20000
 #endif
 
+#ifdef CONFIG_PWM_IMX
+	#define CONFIG_IMX6_PWM_PER_CLK	66000000
+#endif
+
 #ifdef CONFIG_DISTRO_DEFAULTS
 #define BOOT_TARGET_DEVICES(func) \
 		func(USB, usb, 0) \
@@ -60,6 +64,7 @@
 	"image=Image.gz\0" \
 	"img_addr=0x42000000\0" \
 	"splashimage=0x50000000\0" \
+	"splashpos=m,m\0" \
 	"console=ttymxc0,115200\0" \
 	"fdt_addr_r=0x43000000\0" \
 	"fdt_addr=0x43000000\0"			\
@@ -184,6 +189,8 @@
 
 #define CFG_SYS_FSL_USDHC_NUM	2
 #define CFG_SYS_FSL_ESDHC_ADDR	0
+
+#define CONFIG_HIDE_LOGO_VERSION
 
 /* USB configs */
 

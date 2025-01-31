@@ -407,6 +407,59 @@ u32 get_dsi_phy_ref_clk(void)
 #endif
 }
 
+void enable_pwm_clk(u32 index, unsigned char enable)
+{
+	switch (index) {
+	case 0:
+		if (enable) {
+			clock_enable(CCGR_PWM1, false);
+			clock_set_target_val(PWM1_CLK_ROOT, CLK_ROOT_ON |
+					     CLK_ROOT_SOURCE_SEL(0) |
+					     CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1));
+			clock_enable(CCGR_PWM1, true);
+		} else {
+			clock_enable(CCGR_PWM1, false);
+		}
+		return;
+	case 1:
+		if (enable) {
+			clock_enable(CCGR_PWM2, false);
+			clock_set_target_val(PWM2_CLK_ROOT, CLK_ROOT_ON |
+					     CLK_ROOT_SOURCE_SEL(0) |
+					     CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1));
+			clock_enable(CCGR_PWM2, true);
+		} else {
+			clock_enable(CCGR_PWM2, false);
+		}
+		return;
+	case 2:
+		if (enable) {
+			clock_enable(CCGR_PWM3, false);
+			clock_set_target_val(PWM3_CLK_ROOT, CLK_ROOT_ON |
+					     CLK_ROOT_SOURCE_SEL(0) |
+					     CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1));
+			clock_enable(CCGR_PWM3, true);
+		} else {
+			clock_enable(CCGR_PWM3, false);
+		}
+		return;
+	case 3:
+		if (enable) {
+			clock_enable(CCGR_PWM4, false);
+			clock_set_target_val(PWM4_CLK_ROOT, CLK_ROOT_ON |
+					     CLK_ROOT_SOURCE_SEL(0) |
+					     CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1));
+			clock_enable(CCGR_PWM4, true);
+		} else {
+			clock_enable(CCGR_PWM4, false);
+		}
+		return;
+	default:
+		printf("Invalid pwm index\n");
+		return;
+	}
+}
+
 void init_uart_clk(u32 index)
 {
 	/*
