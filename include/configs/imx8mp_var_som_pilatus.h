@@ -66,7 +66,7 @@
 	"fdt_high=0xffffffffffffffff\0"		\
 	"boot_fdt=try\0" \
 	"boot_fit=no\0" \
-	"fdt_file=undefined\0" \
+  "fdt_file=" CONFIG_DEFAULT_FDT_FILE "\0" \
 	"bootm_size=0x10000000\0" \
 	"ip_dyn=yes\0" \
 	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
@@ -92,7 +92,7 @@
 		"bootaux ${m7_addr};\0" \
 	"optargs=setenv bootargs ${bootargs} ${kernelargs};\0" \
 	"mmcargs=setenv bootargs ${mcore_clk} console=${console} " \
-		"root=/dev/mmcblk${mmcblk}p${mmcpart} rootwait rw ${cma_size} cma_name=linux,cma\0 " \
+		"root=/dev/mmcblk${mmcblk}p${mmcpart} rootwait rw vt.global_cursor_default=0 fbcon=logo-pos:center,logo-count:1 ${cma_size} cma_name=linux,cma\0 " \
 	"bootenv=uEnv.txt\0" \
 	"loadbootscript=load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${bootdir}/${bsp_script};\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
@@ -102,28 +102,7 @@
 		"env import -t -r $loadaddr $filesize\0" \
 	"loadimage=load mmc ${mmcdev}:${mmcpart} ${img_addr} ${bootdir}/${image};" \
 		"unzip ${img_addr} ${loadaddr}\0" \
-	"findfdt=" \
-		"if test $fdt_file = undefined; then " \
-			"if test $board_name = VAR-SOM-MX8M-PLUS; then " \
-				"if test ${som_rev} -lt 2; then " \
-					"setenv fdt_file imx8mp-var-som-1.x-symphony.dtb; " \
-				"elif test ${som_has_wbe} = 1; then " \
-					"setenv fdt_file imx8mp-var-som-wbe-symphony.dtb; " \
-				"else " \
-					"setenv fdt_file imx8mp-var-som-symphony.dtb; " \
-				"fi; " \
-			"else " \
-				"if test ${som_rev} -lt 2; then " \
-					"setenv fdt_file imx8mp-var-dart-1.x-dt8mcustomboard.dtb; " \
-				"elif test ${som_has_wbe} = 1; then " \
-					"setenv fdt_file imx8mp-var-dart-wbe-dt8mcustomboard.dtb; " \
-				"else " \
-					"setenv fdt_file imx8mp-var-dart-dt8mcustomboard.dtb;" \
-				"fi; " \
-			"fi; " \
-		"fi; \0" \
-	"loadfdt=run findfdt; " \
-		"echo fdt_file=${fdt_file}; " \
+	"loadfdt=echo fdt_file=${fdt_file}; " \
 		"load mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${bootdir}/${fdt_file}\0" \
 	"ramsize_check="\
 		"if test $sdram_size -le 512; then " \
@@ -162,7 +141,6 @@
 		"if test ${boot_fit} = yes || test ${boot_fit} = try; then " \
 			"bootm ${loadaddr}; " \
 		"else " \
-			"run findfdt; " \
 			"echo fdt_file=${fdt_file}; " \
 			"if ${get_cmd} ${fdt_addr} ${fdt_file}; then " \
 				"booti ${loadaddr} - ${fdt_addr_r}; " \
