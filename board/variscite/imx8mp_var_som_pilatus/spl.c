@@ -38,6 +38,8 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define ON_HOLD_GPIO IMX_GPIO_NR(4, 26)
+#define SLEEP_GPIO IMX_GPIO_NR(4, 21)
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 
 static iomux_v3_cfg_t const uart_pads_dart[] = {
@@ -147,6 +149,11 @@ int power_init_board(void)
 	/* Set BUCK5 voltage to 1.85V to fix Ethernet PHY reset */
 	if (var_detect_board_id() == BOARD_ID_DART)
 		pmic_reg_write(p, PCA9450_BUCK5OUT, 0x32);
+
+	gpio_request(ON_HOLD_GPIO, "on_hold_gpio");
+	gpio_direction_output(ON_HOLD_GPIO, 1);
+	gpio_request(SLEEP_GPIO, "sleep_gpio");
+	gpio_direction_output(SLEEP_GPIO, 1);
 
 	return 0;
 }
