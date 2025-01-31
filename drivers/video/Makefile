@@ -59,6 +59,7 @@ obj-$(CONFIG_VIDEO_LCD_ENDEAVORU) += endeavoru-panel.o
 obj-$(CONFIG_VIDEO_LCD_HIMAX_HX8394) += himax-hx8394.o
 obj-$(CONFIG_VIDEO_LCD_HITACHI_TX18D42VM) += hitachi_tx18d42vm_lcd.o
 obj-$(CONFIG_VIDEO_LCD_ORISETECH_OTM8009A) += orisetech_otm8009a.o
+obj-$(CONFIG_VIDEO_LCD_PILATUS_MARELCOM) += panel-pilatus-marelcom.o
 obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM68200) += raydium-rm68200.o
 obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM67191) += raydium-rm67191.o
 obj-$(CONFIG_VIDEO_LCD_RAYDIUM_RM692C9) += raydium-rm692c9.o

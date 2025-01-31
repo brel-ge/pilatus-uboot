@@ -395,6 +395,7 @@ static int lcdifv3_video_probe(struct udevice *dev)
 	uc_priv->bpix = VIDEO_BPP32; /* only support 32 BPP now */
 	uc_priv->xsize = mode.xres;
 	uc_priv->ysize = mode.yres;
+	uc_priv->format = VIDEO_X8R8G8B8; /* ARGB8888 for BMP display */
 
 	/* Enable dcache for the frame buffer */
 	fb_start = plat->base & ~(MMU_SECTION_SIZE - 1);
