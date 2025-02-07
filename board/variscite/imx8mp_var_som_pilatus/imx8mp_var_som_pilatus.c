@@ -52,7 +52,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define DISPMIX				13
 #define MIPI				15
 
-#define LOADADDR_BMP			0x50000000
+#define LOADADDR_BMP			0x4F600000
 
 static iomux_v3_cfg_t const wdog_pads[] = {
 	MX8MP_PAD_GPIO1_IO02__WDOG1_WDOG_B  | MUX_PAD_CTRL(WDOG_PAD_CTRL),
@@ -356,6 +356,7 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 	return ret;
 }
 
+
 #ifdef CONFIG_EXTCON_PTN5150
 int board_ehci_usb_phy_mode(struct udevice *dev)
 {
@@ -524,7 +525,12 @@ int board_late_init(void)
 
 	splash_get_pos(&x, &y);
 
-	bmp_display(LOADADDR_BMP, x, y);
+	err = bmp_display(LOADADDR_BMP, x, y);
+  if (err ) {
+	  printf("Failed to display BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
+  } else {
+	  printf("Display shows BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
+  }
 #endif
 
 	/* Delay needed to prevent flickering */
