@@ -807,11 +807,27 @@ static int sec_mipi_dsim_config_pll(struct sec_mipi_dsim *dsim)
 	return 0;
 }
 
+static void print_display_timing(const struct display_timing *timing) {
+    printf("pixelclock.typ: %u\n", timing->pixelclock.typ);
+    printf("hactive.typ: %u\n", timing->hactive.typ);
+    printf("hfront_porch.typ: %u\n", timing->hfront_porch.typ);
+    printf("hback_porch.typ: %u\n", timing->hback_porch.typ);
+    printf("hsync_len.typ: %u\n", timing->hsync_len.typ);
+    printf("vactive.typ: %u\n", timing->vactive.typ);
+    printf("vfront_porch.typ: %u\n", timing->vfront_porch.typ);
+    printf("vback_porch.typ: %u\n", timing->vback_porch.typ);
+    printf("vsync_len.typ: %u\n", timing->vsync_len.typ);
+    printf("flags: 0x%X\n", timing->flags); // Print flags as hex
+    printf("hdmi_monitor: %d\n", timing->hdmi_monitor);
+}
+
 static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 {
 	uint32_t bpp, hfp_wc, hbp_wc, hsa_wc, wc;
 	uint32_t mdresol = 0, mvporch = 0, mhporch = 0, msync = 0;
 	struct display_timing *timings = &dsim->timings;
+  
+  print_display_timing(timings);
 
 	mdresol |= MDRESOL_SET_MAINVRESOL(timings->vactive.typ) |
 		   MDRESOL_SET_MAINHRESOL(timings->hactive.typ);
