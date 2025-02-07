@@ -198,12 +198,30 @@ static void lcdifv3_disable_controller(struct lcdifv3_priv *priv)
 	writel(disp_para, (ulong)(priv->reg_base + LCDIFV3_DISP_PARA));
 }
 
+static void print_ctfb_res_modes(struct ctfb_res_modes *mode) {
+    printf("xres: %d\n", mode->xres);
+    printf("yres: %d\n", mode->yres);
+    printf("refresh: %d Hz\n", mode->refresh);
+    printf("pixclock: %d ps\n", mode->pixclock);
+    printf("pixclock_khz: %d kHz\n", mode->pixclock_khz);
+    printf("left_margin: %d\n", mode->left_margin);
+    printf("right_margin: %d\n", mode->right_margin);
+    printf("upper_margin: %d\n", mode->upper_margin);
+    printf("lower_margin: %d\n", mode->lower_margin);
+    printf("hsync_len: %d\n", mode->hsync_len);
+    printf("vsync_len: %d\n", mode->vsync_len);
+    printf("sync: 0x%X\n", mode->sync);
+    printf("vmode: 0x%X\n", mode->vmode);
+}
+
 static void lcdifv3_init(struct udevice *dev,
 			struct ctfb_res_modes *mode, unsigned int format)
 {
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 	struct lcdifv3_priv *priv = dev_get_priv(dev);
 	int ret;
+
+  print_ctfb_res_modes(mode);
 
 	/* Kick in the LCDIF clock */
 	mxs_set_lcdclk(priv->reg_base, PS2KHZ(mode->pixclock));
@@ -395,6 +413,7 @@ static int lcdifv3_video_probe(struct udevice *dev)
 	uc_priv->bpix = VIDEO_BPP32; /* only support 32 BPP now */
 	uc_priv->xsize = mode.xres;
 	uc_priv->ysize = mode.yres;
+	uc_priv->format = VIDEO_X8R8G8B8; /* ARGB8888 for BMP display */
 
 	/* Enable dcache for the frame buffer */
 	fb_start = plat->base & ~(MMU_SECTION_SIZE - 1);

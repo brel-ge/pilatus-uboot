@@ -94,11 +94,14 @@
 
 &mipi_dsi {
 	status = "okay";
-	port@2 {
-		dsim_to_panel: endpoint {
-			remote-endpoint = <&panel_from_dsim>;
-		};
-	};
+
+  ports {
+    port@1 {
+      dsim_to_panel: endpoint {
+        remote-endpoint = <&panel_from_dsim>;
+      };
+    };
+  };
 };
 
 &pwm1 {
