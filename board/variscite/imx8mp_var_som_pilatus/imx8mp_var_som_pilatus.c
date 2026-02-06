@@ -29,6 +29,8 @@
 #include <mmc.h>
 #include <fs.h>
 #include <video.h>
+#include <video_link.h>
+#include <dm/device-internal.h>
 
 #include "../common/extcon-ptn5150.h"
 #include "../common/imx8_eeprom.h"
@@ -40,6 +42,8 @@ int var_setup_mac(struct var_eeprom *eeprom);
 #ifdef CONFIG_VIDEO_LOGO
 #include <bmp_logo.h>
 #endif
+#include <bmp_layout.h>
+#include <asm/byteorder.h>
 #include <splash.h>
 #include <backlight.h>
 #endif
@@ -53,6 +57,67 @@ DECLARE_GLOBAL_DATA_PTR;
 #define MIPI				15
 
 #define LOADADDR_BMP			0x50000000
+
+#ifdef CONFIG_VIDEO
+static void pilatus_show_color_bars(void)
+{
+	static const u32 colors[] = {
+		0x00ff0000,
+		0x0000ff00,
+		0x000000ff,
+		0x00ffffff,
+		0x00000000,
+		0x00ffff00,
+		0x0000ffff,
+		0x00ff00ff,
+	};
+	struct udevice *vdev;
+	struct video_priv *priv;
+	int bar_width;
+	int i;
+	int ret;
+
+	vdev = video_link_get_video_device();
+	if (!vdev)
+		return;
+
+	ret = device_probe(vdev);
+	if (ret) {
+		printf("video device probe failed: %d\n", ret);
+		return;
+	}
+
+	priv = dev_get_uclass_priv(vdev);
+	if (!priv || !priv->xsize || !priv->ysize || !priv->fb || !priv->line_length) {
+		printf("video priv invalid: fb=%p line=%u x=%u y=%u size=%u\n",
+		       priv ? priv->fb : NULL,
+		       priv ? priv->line_length : 0,
+		       priv ? priv->xsize : 0,
+		       priv ? priv->ysize : 0,
+		       priv ? priv->fb_size : 0);
+		return;
+	}
+
+	printf("video priv: fb=%p line=%u x=%u y=%u size=%u bpix=%u format=%u\n",
+	       priv->fb, priv->line_length, priv->xsize, priv->ysize, priv->fb_size,
+	       priv->bpix, priv->format);
+	if (priv->line_length != priv->xsize * VNBYTES(priv->bpix))
+		printf("video line_length mismatch: expected %u\n",
+		       priv->xsize * VNBYTES(priv->bpix));
+
+	bar_width = priv->xsize / ARRAY_SIZE(colors);
+	if (!bar_width)
+		return;
+
+	video_fill(vdev, 0x00000000);
+	for (i = 0; i < ARRAY_SIZE(colors); i++) {
+		int xstart = i * bar_width;
+		int xend = (i == ARRAY_SIZE(colors) - 1) ? priv->xsize : xstart + bar_width;
+
+		video_fill_part(vdev, xstart, 0, xend, priv->ysize, colors[i]);
+	}
+}
+#endif
 
 static iomux_v3_cfg_t const wdog_pads[] = {
 	MX8MP_PAD_GPIO1_IO02__WDOG1_WDOG_B  | MUX_PAD_CTRL(WDOG_PAD_CTRL),
@@ -522,19 +587,28 @@ int board_late_init(void)
 	err = fs_read(CONFIG_BMP_LOGO_FILENAME, LOADADDR_BMP, 0, 0, &act_read);
 	if (err)
 		printf("BMP file %s could not be read\n", CONFIG_BMP_LOGO_FILENAME);
+	if (!err) {
+		struct bmp_header *bmp = (struct bmp_header *)LOADADDR_BMP;
+		u8 *raw = (u8 *)LOADADDR_BMP;
+		int i;
+
+		printf("BMP header: sig=%c%c size=%u offset=%u\n",
+		       bmp->signature[0], bmp->signature[1],
+		       le32_to_cpu(bmp->file_size),
+		       le32_to_cpu(bmp->data_offset));
+		printf("BMP info: %ux%u bpp=%u compression=%u image_size=%u\n",
+		       le32_to_cpu(bmp->width), le32_to_cpu(bmp->height),
+		       le16_to_cpu(bmp->bit_count),
+		       le32_to_cpu(bmp->compression),
+		       le32_to_cpu(bmp->image_size));
+		printf("BMP first16:");
+		for (i = 0; i < 16; i++)
+			printf(" %02x", raw[i]);
+		printf("\n");
+	}
 
 	splash_get_pos(&x, &y);
-
-	err = bmp_display(LOADADDR_BMP, x, y);
-  if (err ) {
-	  printf("Failed to display BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
-  } else {
-	  printf("Display shows BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
-  }
 #endif
-
-	/* Delay needed to prevent flickering */
-	mdelay(30);
 
 	/* Enable backlight */
 	err = uclass_get_device_by_name(UCLASS_PANEL_BACKLIGHT, "backlight", &backlight);
@@ -545,6 +619,23 @@ int board_late_init(void)
 		if (err)
 			printf("backlight could not be enabled\n");
 	}
+
+#ifdef CONFIG_VIDEO
+	pilatus_show_color_bars();
+	mdelay(500);
+#endif
+
+#ifdef CONFIG_BMP_LOGO_EXT4_EN
+	err = bmp_display(LOADADDR_BMP, x, y);
+	if (err) {
+		printf("Failed to display BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
+	} else {
+		printf("Display shows BMP file %s \n", CONFIG_BMP_LOGO_FILENAME);
+	}
+#endif
+
+	/* Delay needed to prevent flickering */
+	mdelay(30);
 
 	return 0;
 }

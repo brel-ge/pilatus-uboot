@@ -41,6 +41,42 @@ struct lcdifv3_priv {
 	u32 thres_high_div;
 };
 
+static void lcdifv3_fill_test_pattern(ulong fb_base, u32 width, u32 height)
+{
+	static const u32 colors[8] = {
+		0x00ff0000,
+		0x0000ff00,
+		0x000000ff,
+		0x00ffffff,
+		0x00000000,
+		0x00ffff00,
+		0x0000ffff,
+		0x00ff00ff,
+	};
+	u32 bar_width = width / ARRAY_SIZE(colors);
+	u32 x;
+	u32 y;
+	u32 *fb = (u32 *)fb_base;
+
+	if (!width || !height || !bar_width)
+		return;
+
+	for (y = 0; y < height; y++) {
+		u32 *row = fb + (y * width);
+
+		for (x = 0; x < width; x++) {
+			u32 idx = x / bar_width;
+
+			if (idx >= ARRAY_SIZE(colors))
+				idx = ARRAY_SIZE(colors) - 1;
+
+			row[x] = colors[idx];
+		}
+	}
+
+	flush_dcache_range(fb_base, fb_base + ((ulong)width * height * 4));
+}
+
 static int lcdifv3_set_pix_fmt(struct lcdifv3_priv *priv, unsigned int format)
 {
 	uint32_t ctrldescl0_5 = 0;
@@ -423,6 +459,7 @@ static int lcdifv3_video_probe(struct udevice *dev)
 					DCACHE_WRITEBACK);
 	video_set_flush_dcache(dev, true);
 	gd->fb_base = plat->base;
+	lcdifv3_fill_test_pattern(plat->base, uc_priv->xsize, uc_priv->ysize);
 
 	return ret;
 }
