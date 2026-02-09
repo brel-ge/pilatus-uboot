@@ -765,6 +765,8 @@ static int sec_mipi_dsim_calc_pmsk(struct sec_mipi_dsim *dsim)
 	debug("fout = %u, fin = %u, m = %u, "
 		     "p = %u, s = %u, best_delta = %u\n",
 		fout, fin, dsim->m, dsim->p, dsim->s, best_delta);
+	printf("REGDUMP DSIM calc fin=%u fout=%u best_delta=%u\n",
+	       fin, fout, best_delta);
 
 	return 0;
 }
@@ -805,6 +807,37 @@ static int sec_mipi_dsim_config_pll(struct sec_mipi_dsim *dsim)
 	}
 
 	return 0;
+}
+
+static void sec_mipi_dsim_dump_regs(struct sec_mipi_dsim *dsim, const char *tag)
+{
+	printf("REGDUMP DSIM (%s) pix_clk=%llu bit_clk=%llu lanes=%u fmt=%u p=%u m=%u s=%u pms=0x%x\n",
+	       tag,
+	       dsim->pix_clk, dsim->bit_clk, dsim->lanes, dsim->format,
+	       dsim->p, dsim->m, dsim->s, dsim->pms);
+	printf("REGDUMP DSIM (%s) status=0x%08x rgb=0x%08x intsrc=0x%08x\n",
+	       tag,
+	       dsim_read(dsim, DSIM_STATUS),
+	       dsim_read(dsim, DSIM_RGB_STATUS),
+	       dsim_read(dsim, DSIM_INTSRC));
+	printf("REGDUMP DSIM (%s) cfg=0x%08x esc=0x%08x clk=0x%08x pll=0x%08x\n",
+	       tag,
+	       dsim_read(dsim, DSIM_CONFIG),
+	       dsim_read(dsim, DSIM_ESCMODE),
+	       dsim_read(dsim, DSIM_CLKCTRL),
+	       dsim_read(dsim, DSIM_PLLCTRL));
+	printf("REGDUMP DSIM (%s) res=0x%08x vporch=0x%08x hporch=0x%08x sync=0x%08x\n",
+	       tag,
+	       dsim_read(dsim, DSIM_MDRESOL),
+	       dsim_read(dsim, DSIM_MVPORCH),
+	       dsim_read(dsim, DSIM_MHPORCH),
+	       dsim_read(dsim, DSIM_MSYNC));
+	printf("REGDUMP DSIM (%s) phy=0x%08x phy1=0x%08x phy2=0x%08x fifo=0x%08x\n",
+	       tag,
+	       dsim_read(dsim, DSIM_PHYTIMING),
+	       dsim_read(dsim, DSIM_PHYTIMING1),
+	       dsim_read(dsim, DSIM_PHYTIMING2),
+	       dsim_read(dsim, DSIM_FIFOCTRL));
 }
 
 static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
@@ -1425,6 +1458,12 @@ static int sec_mipi_dsim_init(struct udevice *dev,
 
 static int sec_mipi_dsim_enable(struct udevice *dev)
 {
+	struct sec_mipi_dsim *dsim_host = dev_get_priv(dev);
+
+	sec_mipi_dsim_dump_regs(dsim_host, "enable");
+	mdelay(100);
+	sec_mipi_dsim_dump_regs(dsim_host, "enable+100ms");
+
 	return 0;
 }
 

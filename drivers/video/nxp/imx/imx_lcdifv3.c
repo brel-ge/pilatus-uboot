@@ -198,6 +198,7 @@ static void lcdifv3_init(struct udevice *dev,
 	struct video_uc_plat *plat = dev_get_uclass_plat(dev);
 	struct lcdifv3_priv *priv = dev_get_priv(dev);
 	int ret;
+	u32 desc3, desc5, disp_para, low, high, st;
 
 	/* Kick in the LCDIF clock */
 	mxs_set_lcdclk(priv->reg_base, PS2KHZ(mode->pixclock));
@@ -224,6 +225,30 @@ static void lcdifv3_init(struct udevice *dev,
 		(ulong)(priv->reg_base + LCDIFV3_CTRLDESCL0_3));
 
 	lcdifv3_enable_controller(priv);
+
+	desc3 = readl((ulong)(priv->reg_base + LCDIFV3_CTRLDESCL0_3));
+	desc5 = readl((ulong)(priv->reg_base + LCDIFV3_CTRLDESCL0_5));
+	disp_para = readl((ulong)(priv->reg_base + LCDIFV3_DISP_PARA));
+	low = readl((ulong)(priv->reg_base + LCDIFV3_CTRLDESCL_LOW0_4));
+	high = readl((ulong)(priv->reg_base + LCDIFV3_CTRLDESCL_HIGH0_4));
+	st = readl((ulong)(priv->reg_base + LCDIFV3_INT_STATUS_D0));
+	printf("REGDUMP LCDIF desc3=0x%08x desc5=0x%08x disp_para=0x%08x\n",
+	       desc3, desc5, disp_para);
+	printf("REGDUMP LCDIF fb low=0x%08x high=0x%08x pitch=%u exp=%u bpp=%u\n",
+	       low, high, REG_GET(desc3, 15, 0), mode->xres * 4,
+	       REG_GET(desc5, 27, 24));
+	printf("REGDUMP LCDIF status0=0x%08x underrun=%u fifo_empty=%u dma_err=%u\n",
+	       st,
+	       !!(st & INT_STATUS_D0_UNDERRUN),
+	       !!(st & INT_STATUS_D0_FIFO_EMPTY),
+	       !!(st & INT_STATUS_D0_DMA_ERR));
+	mdelay(100);
+	st = readl((ulong)(priv->reg_base + LCDIFV3_INT_STATUS_D0));
+	printf("REGDUMP LCDIF status100ms=0x%08x underrun=%u fifo_empty=%u dma_err=%u\n",
+	       st,
+	       !!(st & INT_STATUS_D0_UNDERRUN),
+	       !!(st & INT_STATUS_D0_FIFO_EMPTY),
+	       !!(st & INT_STATUS_D0_DMA_ERR));
 }
 
 void lcdifv3_power_down(struct lcdifv3_priv *priv)

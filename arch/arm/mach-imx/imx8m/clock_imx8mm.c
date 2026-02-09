@@ -23,6 +23,7 @@ DECLARE_GLOBAL_DATA_PTR;
 static struct anamix_pll *ana_pll = (struct anamix_pll *)ANATOP_BASE_ADDR;
 
 static u32 get_root_clk(enum clk_root_index clock_id);
+static u32 get_root_src_clk(enum clk_root_src root_src);
 
 #ifdef CONFIG_IMX_HAB
 void hab_caam_clock_enable(unsigned char enable)
@@ -78,6 +79,9 @@ static int fracpll_configure(enum pll_clocks pll, u32 freq)
 	}
 
 	rate = &imx8mm_fracpll_tbl[i];
+	if (pll == ANATOP_VIDEO_PLL)
+		printf("REGDUMP CLK fracpll req=%u m=%u p=%u s=%u k=%u\n",
+		       freq, rate->mdiv, rate->pdiv, rate->sdiv, rate->kdiv);
 
 	switch (pll) {
 	case ANATOP_DRAM_PLL:
@@ -120,6 +124,13 @@ static int fracpll_configure(enum pll_clocks pll, u32 freq)
 	/* Bypass */
 	tmp &= ~BYPASS_MASK;
 	writel(tmp, pll_base);
+
+	if (pll == ANATOP_VIDEO_PLL) {
+		printf("REGDUMP CLK videopll regs gnrl=0x%08x fdiv0=0x%08x fdiv1=0x%08x\n",
+		       readl(&ana_pll->video_pll1_gnrl_ctl),
+		       readl(&ana_pll->video_pll1_fdiv_ctl0),
+		       readl(&ana_pll->video_pll1_fdiv_ctl1));
+	}
 
 	return 0;
 }
@@ -353,6 +364,9 @@ void enable_display_clk(unsigned char enable)
 
 		/* 27Mhz MIPI DPHY PLL ref from video PLL */
 		clock_set_target_val(MEDIA_MIPI_PHY1_REF_CLK_ROOT, CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(7) |CLK_ROOT_POST_DIV(CLK_ROOT_POST_DIV22));
+		printf("REGDUMP CLK video_pll=%u mipi_phy1_ref=%u\n",
+		       mxc_get_clock(VIDEO_PLL_CLK),
+		       get_root_clk(MEDIA_MIPI_PHY1_REF_CLK_ROOT));
 		clock_enable(CCGR_DISPMIX, true);
 	} else {
 		clock_enable(CCGR_DISPMIX, false);
@@ -391,7 +405,25 @@ void enable_display_clk(unsigned char enable)
 u32 get_dsi_phy_ref_clk(void)
 {
 #ifdef CONFIG_IMX8MP
-	return get_root_clk(MEDIA_MIPI_PHY1_REF_CLK_ROOT);
+	enum clk_root_src root_src;
+	u32 rate = get_root_clk(MEDIA_MIPI_PHY1_REF_CLK_ROOT);
+	u32 pre_podf = 0, post_podf = 0, parent = 0;
+
+	if (!clock_get_src(MEDIA_MIPI_PHY1_REF_CLK_ROOT, &root_src)) {
+		clock_get_prediv(MEDIA_MIPI_PHY1_REF_CLK_ROOT, &pre_podf);
+		clock_get_postdiv(MEDIA_MIPI_PHY1_REF_CLK_ROOT, &post_podf);
+		parent = get_root_src_clk(root_src);
+		printf("REGDUMP CLK dsi_ref src=%u pre=%u post=%u parent=%u rate=%u\n",
+		       root_src, pre_podf, post_podf, parent, rate);
+		printf("REGDUMP CLK videopll_now gnrl=0x%08x fdiv0=0x%08x fdiv1=0x%08x\n",
+		       readl(&ana_pll->video_pll1_gnrl_ctl),
+		       readl(&ana_pll->video_pll1_fdiv_ctl0),
+		       readl(&ana_pll->video_pll1_fdiv_ctl1));
+	} else {
+		printf("REGDUMP CLK dsi_ref src=ERR rate=%u\n", rate);
+	}
+
+	return rate;
 #elif defined(CONFIG_IMX8MN)
 	return get_root_clk(DISPLAY_DSI_PHY_REF_CLK_ROOT);
 #else
